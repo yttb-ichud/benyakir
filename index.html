@@ -8,7 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-  <!-- Hebcal JS (לצורך המרת תאריכים) -->
+  <!-- Hebcal לצורך תאריך עברי -->
   <script src="https://unpkg.com/hebcal@2.5.0/dist/hebcal.browser.js"></script>
 
   <style>
@@ -22,7 +22,7 @@
       margin: 0 auto;
     }
     .fc-event-title {
-      white-space: pre-line; /* כדי שהתאריך העברי יוצג בשורה נפרדת */
+      white-space: pre-line;
     }
   </style>
 </head>
@@ -34,18 +34,24 @@
   <script>
     const BASE_ID = 'appOiQPHQxRKhPJZs';
     const TABLE_NAME = 'ארועים';
-    const AIRTABLE_API_KEY = 'patNdl6nMVJj0BAaI.ca2870912b8d2fcd34c3a35fbc793edc7255cf7bb47b3e65e8db8fbcf1596e74';
+    const AIRTABLE_TOKEN = 'patNdl6nMVJj0BAaI.ca2870912b8d2fcd34c3a35fbc793edc7255cf7bb47b3e65e8db8fbcf1596e74';
 
     document.addEventListener('DOMContentLoaded', async function () {
       const calendarEl = document.getElementById('calendar');
 
-      const url = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE_NAME)}?api_key=${AIRTABLE_API_KEY}`;
-      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+      const airtableUrl = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE_NAME)}`;
+      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(airtableUrl);
 
       let events = [];
 
       try {
-        const res = await fetch(proxyUrl);
+        const res = await fetch(proxyUrl, {
+          headers: {
+            'Authorization': 'Bearer ' + AIRTABLE_TOKEN,
+            'Content-Type': 'application/json'
+          }
+        });
+
         const data = await res.json();
 
         events = data.records.map(record => {
@@ -53,10 +59,10 @@
           const startDate = record.fields.Date;
           const description = record.fields['תאור'] || '';
 
-          // המרת תאריך גרגוריאני לעברי
+          // תאריך עברי
           const gdate = new Date(startDate);
           const hdate = new Hebcal.HDate(gdate);
-          const hebrewDateStr = hdate.renderGematriya(); // לדוגמה: י״ב באייר תשפ״ה
+          const hebrewDateStr = hdate.renderGematriya();
 
           return {
             title: `${title}\n(${hebrewDateStr})`,
@@ -64,6 +70,7 @@
             description: description
           };
         });
+
       } catch (err) {
         console.error('שגיאה בטעינת נתונים מ-Airtable:', err);
       }
@@ -91,4 +98,3 @@
 
 </body>
 </html>
-
