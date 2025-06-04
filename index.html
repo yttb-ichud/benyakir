@@ -1,86 +1,94 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>לוח עברי</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/main.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales-all.global.min.js"></script> <!-- ✅ תמיכה בעברית -->
+  <meta charset="utf-8" />
+  <title>לוח עברי עם אירועים</title>
+
+  <!-- FullCalendar -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+  <!-- Hebcal JS (לצורך המרת תאריכים) -->
+  <script src="https://unpkg.com/hebcal@2.5.0/dist/hebcal.browser.js"></script>
+
   <style>
-    body { font-family: sans-serif; direction: rtl; padding: 20px; }
-    #calendar { max-width: 1000px; margin: auto; }
+    body {
+      direction: rtl;
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    #calendar {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .fc-event-title {
+      white-space: pre-line; /* כדי שהתאריך העברי יוצג בשורה נפרדת */
+    }
   </style>
 </head>
 <body>
 
-<h2>לוח אירועים עברי</h2>
-<div id="calendar"></div>
+  <h2>לוח אירועים עם תאריך עברי</h2>
+  <div id="calendar"></div>
 
-<script>
-  const AIRTABLE_API_KEY = 'patNdl6nMVJj0BAaI.ca2870912b8d2fcd34c3a35fbc793edc7255cf7bb47b3e65e8db8fbcf1596e74';
-  const BASE_ID = 'appOiQPHQxRKhPJZs';
-  const TABLE_NAME = 'ארועים';
+  <script>
+    const BASE_ID = 'appOiQPHQxRKhPJZs';
+    const TABLE_NAME = 'ארועים';
+    const AIRTABLE_API_KEY = 'patNdl6nMVJj0BAaI.ca2870912b8d2fcd34c3a35fbc793edc7255cf7bb47b3e65e8db8fbcf1596e74';
 
-  document.addEventListener('DOMContentLoaded', async function () {
-    const calendarEl = document.getElementById('calendar');
+    document.addEventListener('DOMContentLoaded', async function () {
+      const calendarEl = document.getElementById('calendar');
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'dayGridMonth',
-      locale: 'he',        // ✅ עברית
-      direction: 'rtl',    // ✅ יישור מימין לשמאל
-      events: async function (fetchInfo, successCallback) {
-        try {
-          const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE_NAME)}?api_key=${AIRTABLE_API_KEY}`);
-          const data = await res.json();
-          console.log("נתונים מאיירטייבל:", data);
+      const url = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE_NAME)}?api_key=${AIRTABLE_API_KEY}`;
+      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
 
-          const events = await Promise.all(data.records.map(async record => {
-            const date = record.fields.Date;
-            const title = record.fields.Name || 'ללא שם';
-            const teur = record.fields["תאור"] || '';
-            let hebrewDate = '';
+      let events = [];
 
-            if (date) {
-              const [y, m, d] = date.split("-");
-              try {
-                const hres = await fetch(`https://www.hebcal.com/converter?cfg=json&gy=${y}&gm=${m}&gd=${d}&g2h=1`);
-                const hdata = await hres.json();
-                hebrewDate = hdata.hebrew;
-              } catch (e) {
-                console.warn("שגיאה בשליפת תאריך עברי", e);
-              }
-            }
+      try {
+        const res = await fetch(proxyUrl);
+        const data = await res.json();
 
-            return {
-              title: title,
-              start: date,
-              extendedProps: {
-                description: teur,
-                hebrew: hebrewDate
-              }
-            };
-          }));
+        events = data.records.map(record => {
+          const title = record.fields.Name || 'ללא כותרת';
+          const startDate = record.fields.Date;
+          const description = record.fields['תאור'] || '';
 
-          console.log("אירועים:", events);
-          successCallback(events);
-        } catch (err) {
-          console.error("שגיאה בהבאת אירועים:", err);
-          successCallback([]);
-        }
-      },
-      eventDidMount: function (info) {
-        if (info.event.extendedProps.hebrew) {
-          const div = document.createElement('div');
-          div.textContent = info.event.extendedProps.hebrew;
-          div.style.fontSize = '0.8em';
-          div.style.color = '#555';
-          info.el.appendChild(div);
-        }
+          // המרת תאריך גרגוריאני לעברי
+          const gdate = new Date(startDate);
+          const hdate = new Hebcal.HDate(gdate);
+          const hebrewDateStr = hdate.renderGematriya(); // לדוגמה: י״ב באייר תשפ״ה
+
+          return {
+            title: `${title}\n(${hebrewDateStr})`,
+            start: startDate,
+            description: description
+          };
+        });
+      } catch (err) {
+        console.error('שגיאה בטעינת נתונים מ-Airtable:', err);
       }
-    });
 
-    calendar.render();
-  });
-</script>
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'he',
+        initialView: 'dayGridMonth',
+        direction: 'rtl',
+        events: events,
+        eventDidMount: function (info) {
+          if (info.event.extendedProps.description) {
+            info.el.title = info.event.extendedProps.description;
+          }
+        },
+        headerToolbar: {
+          start: 'title',
+          center: '',
+          end: 'prev,next today'
+        }
+      });
+
+      calendar.render();
+    });
+  </script>
+
 </body>
 </html>
+
