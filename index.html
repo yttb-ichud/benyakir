@@ -8,7 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-  <!-- Hebcal לצורך תאריך עברי -->
+  <!-- Hebcal עבור תאריכים עבריים -->
   <script src="https://unpkg.com/hebcal@2.5.0/dist/hebcal.browser.js"></script>
 
   <style>
@@ -28,7 +28,7 @@
 </head>
 <body>
 
-  <h2>לוח אירועים עם תאריך עברי</h2>
+  <h2>לוח אירועים עם תאריכים עבריים</h2>
   <div id="calendar"></div>
 
   <script>
@@ -40,17 +40,18 @@
       const calendarEl = document.getElementById('calendar');
 
       const airtableUrl = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE_NAME)}`;
-      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(airtableUrl);
 
       let events = [];
 
       try {
-        const res = await fetch(proxyUrl, {
+        const res = await fetch(airtableUrl, {
           headers: {
             'Authorization': 'Bearer ' + AIRTABLE_TOKEN,
             'Content-Type': 'application/json'
           }
         });
+
+        if (!res.ok) throw new Error(`שגיאה: ${res.status}`);
 
         const data = await res.json();
 
@@ -59,7 +60,6 @@
           const startDate = record.fields.Date;
           const description = record.fields['תאור'] || '';
 
-          // תאריך עברי
           const gdate = new Date(startDate);
           const hdate = new Hebcal.HDate(gdate);
           const hebrewDateStr = hdate.renderGematriya();
